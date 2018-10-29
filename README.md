@@ -1,7 +1,8 @@
 # GoTetris
 
 Bare-bones Tetris implementation written in Go, using [pixel](https://github.com/faiface/pixel) library.
-![screenshot](screenshot.png)
+![](screenshot.png)
+
 Done:
 - Moving pieces
 - Rotating pieces
