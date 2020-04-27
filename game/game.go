@@ -1,103 +1,112 @@
-package main
+package game
 
 import (
 	"fmt"
+
 	"github.com/faiface/pixel"
 	"github.com/faiface/pixel/imdraw"
 	"golang.org/x/image/colornames"
 )
 
-type GameBoard struct {
-	FilledArea   []BoardPos
-	ShapeImages  *imdraw.IMDraw
-	CurrentShape *Shape
+const (
+	SquareSize   float64 = 30
+	BoardOffsetX float64 = 30
+	BoardOffsetY float64 = 30
+	ColCount     int     = 10
+	RowCount     int     = 24
+)
 
-	NextShape       *Shape
-	NextShapeImages *imdraw.IMDraw
+type Game struct {
+	FilledArea []BoardPos
+	ShapeImgs  *imdraw.IMDraw
+	CurShape   *Shape
+
+	NextShape     *Shape
+	NextShapeImgs *imdraw.IMDraw
 
 	IsGameOver bool
 }
 
-func NewGameBoard() *GameBoard {
-	board := GameBoard{}
+func New() *Game {
+	board := Game{
+		FilledArea:    make([]BoardPos, 0),
+		ShapeImgs:     imdraw.New(nil),
+		CurShape:      nil,
+		NextShape:     NewShape(),
+		NextShapeImgs: imdraw.New(nil),
+		IsGameOver:    false,
+	}
 
-	board.ShapeImages = imdraw.New(nil)
-	board.FilledArea = make([]BoardPos, 0)
-	board.setCurrentShape(NewShape())
-
-	board.NextShape = NewShape()
-	board.NextShapeImages = imdraw.New(nil)
-	board.IsGameOver = false
-
+	board.SetShape(NewShape())
 	return &board
 }
 
-func (gameBoard *GameBoard) MoveShapeLeft() {
-	for _, vertex := range gameBoard.CurrentShape.Coords {
-		if vertex.X == 0 {
+func (game *Game) MoveShapeLeft() {
+	for _, vtx := range game.CurShape.Coords {
+		if vtx.X == 0 {
 			return
 		}
 
-		for _, areaVertex := range gameBoard.FilledArea {
-			if vertex.Y == areaVertex.Y && vertex.X-1 == areaVertex.X {
+		for _, areaVtx := range game.FilledArea {
+			if vtx.Y == areaVtx.Y && vtx.X-1 == areaVtx.X {
 				return
 			}
 		}
 	}
 
-	for index := range gameBoard.CurrentShape.Coords {
-		gameBoard.CurrentShape.Coords[index].X--
+	for i := range game.CurShape.Coords {
+		game.CurShape.Coords[i].X--
 	}
 }
 
-func (gameBoard *GameBoard) MoveShapeRight() {
-	for _, vertex := range gameBoard.CurrentShape.Coords {
-		if vertex.X == ColCount-1 {
+func (game *Game) MoveShapeRight() {
+	for _, vtx := range game.CurShape.Coords {
+		if vtx.X == ColCount-1 {
 			return
 		}
 
-		for _, areaVertex := range gameBoard.FilledArea {
-			if vertex.Y == areaVertex.Y && vertex.X+1 == areaVertex.X {
+		for _, areaVtx := range game.FilledArea {
+			if vtx.Y == areaVtx.Y && vtx.X+1 == areaVtx.X {
 				return
 			}
 		}
 	}
 
-	for index := range gameBoard.CurrentShape.Coords {
-		gameBoard.CurrentShape.Coords[index].X++
+	for i := range game.CurShape.Coords {
+		game.CurShape.Coords[i].X++
 	}
 }
 
 // Recalculate images positions from board state
-func (gameBoard *GameBoard) Refresh() {
+func (game *Game) Refresh() {
 
-	gameBoard.ShapeImages.Clear()
-	gameBoard.ShapeImages.Color = colornames.Yellow
+	game.ShapeImgs.Clear()
+	game.ShapeImgs.Color = colornames.Yellow
 
-	for _, dot := range gameBoard.CurrentShape.Coords {
-		gameBoard.ShapeImages.Push(getSquarePos(dot)...)
-		gameBoard.ShapeImages.Rectangle(0)
+	for _, dot := range game.CurShape.Coords {
+		game.ShapeImgs.Push(getSquarePos(dot)...)
+		game.ShapeImgs.Rectangle(0)
 	}
 
-	gameBoard.ShapeImages.Color = colornames.Green
-	for _, dot := range gameBoard.FilledArea {
-		gameBoard.ShapeImages.Push(getSquarePos(dot)...)
-		gameBoard.ShapeImages.Rectangle(0)
+	game.ShapeImgs.Color = colornames.Green
+	for _, dot := range game.FilledArea {
+		game.ShapeImgs.Push(getSquarePos(dot)...)
+		game.ShapeImgs.Rectangle(0)
 	}
 
-	gameBoard.NextShapeImages.Clear()
-	gameBoard.NextShapeImages.Color = colornames.Yellow
+	game.NextShapeImgs.Clear()
+	game.NextShapeImgs.Color = colornames.Yellow
 
 	offsetVec := pixel.V(460, 750)
-	for _, dot := range gameBoard.NextShape.Coords {
+	for _, dot := range game.NextShape.Coords {
 		pos := getSquarePos(dot)
 
 		for idx, v := range pos {
 			pos[idx] = v.To(offsetVec)
 		}
 
-		gameBoard.NextShapeImages.Push(pos...)
-		gameBoard.NextShapeImages.Rectangle(0)
+		game.NextShapeImgs.Push(pos...)
+		game.NextShapeImgs.Rectangle(0)
 	}
 }
 
@@ -112,24 +121,16 @@ func getSquarePos(pos BoardPos) (coords []pixel.Vec) {
 }
 
 // Add new shape to the top of the field
-func (gameBoard *GameBoard) setCurrentShape(shape *Shape) {
-	row := RowCount - 3
-	col := ColCount/2 - 1
-
-	for index := range shape.Coords {
-		shape.Coords[index].X = shape.Coords[index].X + col
-		shape.Coords[index].Y = shape.Coords[index].Y + row
-	}
-
-	gameBoard.CurrentShape = shape
+func (game *Game) SetShape(shape *Shape) {
+	game.CurShape = shape.ToBoardCoords()
 }
 
-func (gameBoard *GameBoard) isPosFree(pos BoardPos) bool {
+func (game *Game) isPosFree(pos BoardPos) bool {
 	if pos.Y < 0 {
 		return false
 	}
 
-	for _, dot := range gameBoard.FilledArea {
+	for _, dot := range game.FilledArea {
 		if pos.X == dot.X && pos.Y == dot.Y {
 			return false
 		}
@@ -138,17 +139,17 @@ func (gameBoard *GameBoard) isPosFree(pos BoardPos) bool {
 	return true
 }
 
-func (gameBoard *GameBoard) RotateShape() {
-	pivotIdx := gameBoard.CurrentShape.PivotIndex
+func (game *Game) RotateShape() {
+	pivotIdx := game.CurShape.PivotIndex
 
 	if pivotIdx < 0 {
 		return
 	}
 
-	pivotCoords := gameBoard.CurrentShape.Coords[pivotIdx]
+	pivotCoords := game.CurShape.Coords[pivotIdx]
 	var newShapePosition []BoardPos
 
-	for _, vertex := range gameBoard.CurrentShape.Coords {
+	for _, vertex := range game.CurShape.Coords {
 		// relative vector (abs position - pivot)
 		vectorRelative := BoardPos{
 			X: vertex.X - pivotCoords.X,
@@ -167,26 +168,26 @@ func (gameBoard *GameBoard) RotateShape() {
 			Y: vectorTransform.Y + pivotCoords.Y,
 		}
 
-		if !gameBoard.isPosFree(newCoords) {
+		if !game.isPosFree(newCoords) {
 			return
 		}
 
 		newShapePosition = append(newShapePosition, newCoords)
 	}
 
-	gameBoard.CurrentShape.Coords = newShapePosition
+	game.CurShape.Coords = newShapePosition
 
-	// verify all vertexes of figure are inside and move until shape is inside
-	for _, vertex := range gameBoard.CurrentShape.Coords {
+	// verify all vertices of figure are inside and move until shape is inside
+	for _, vertex := range game.CurShape.Coords {
 		if vertex.X < 0 {
 			for i := vertex.X; i < 0; i++ {
-				gameBoard.MoveShapeRight()
+				game.MoveShapeRight()
 			}
 		}
 
 		if vertex.X > ColCount-1 {
 			for i := vertex.X; i > ColCount-1; i-- {
-				gameBoard.MoveShapeLeft()
+				game.MoveShapeLeft()
 			}
 		}
 
@@ -198,13 +199,13 @@ func (gameBoard *GameBoard) RotateShape() {
 	}
 }
 
-func (gameBoard *GameBoard) isColliding() bool {
-	for _, figureVertex := range gameBoard.CurrentShape.Coords {
+func (game *Game) isColliding() bool {
+	for _, figureVertex := range game.CurShape.Coords {
 		if figureVertex.Y == 0 {
 			return true // hit ground
 		}
 
-		for _, areaVertex := range gameBoard.FilledArea {
+		for _, areaVertex := range game.FilledArea {
 			if figureVertex.Y-1 == areaVertex.Y && figureVertex.X == areaVertex.X {
 				return true // hit other piece
 			}
@@ -214,21 +215,21 @@ func (gameBoard *GameBoard) isColliding() bool {
 	return false
 }
 
-func (gameBoard *GameBoard) fallDown() {
-	if gameBoard.IsGameOver {
+func (game *Game) Fall() {
+	if game.IsGameOver {
 		return
 	}
 
-	if gameBoard.isColliding() {
-		gameBoard.FilledArea = append(gameBoard.FilledArea, gameBoard.CurrentShape.Coords...)
-		gameBoard.clearLines()
-		gameBoard.setCurrentShape(gameBoard.NextShape)
-		gameBoard.NextShape = NewShape()
+	if game.isColliding() {
+		game.FilledArea = append(game.FilledArea, game.CurShape.Coords...)
+		game.clearLines()
+		game.SetShape(game.NextShape)
+		game.NextShape = NewShape()
 		return
 	}
 
-	for index := range gameBoard.CurrentShape.Coords {
-		gameBoard.CurrentShape.Coords[index].Y--
+	for index := range game.CurShape.Coords {
+		game.CurShape.Coords[index].Y--
 	}
 }
 
@@ -280,12 +281,12 @@ func groupCanGoDown(board *[RowCount][ColCount]int, groupNum int) (canGoDown boo
 
 // Clearing lines using Sticky Gravity Mode
 // Details: http://tetris.wikia.com/wiki/Line_clear
-func (gameBoard *GameBoard) clearLines() {
+func (game *Game) clearLines() {
 	var board [RowCount][ColCount]int
-	for _, dot := range gameBoard.FilledArea {
+	for _, dot := range game.FilledArea {
 		if dot.Y == RowCount-1 {
 			fmt.Println("game over")
-			gameBoard.IsGameOver = true
+			game.IsGameOver = true
 			return
 		}
 		board[dot.Y][dot.X] = -1
@@ -343,5 +344,5 @@ func (gameBoard *GameBoard) clearLines() {
 		}
 	}
 
-	gameBoard.FilledArea = newFilledArea
+	game.FilledArea = newFilledArea
 }
