@@ -1,4 +1,4 @@
-package main
+package game
 
 import (
 	"math/rand"
@@ -21,7 +21,18 @@ func NewShape() (shape *Shape) {
 
 	shape.PivotIndex = pivotIndex
 	shape.Coords = pos
-	return
+	return shape
+}
+
+func (s Shape) ToBoardCoords() *Shape {
+	row := RowCount - 3
+	col := ColCount/2 - 1
+
+	for index := range s.Coords {
+		s.Coords[index].X = s.Coords[index].X + col
+		s.Coords[index].Y = s.Coords[index].Y + row
+	}
+	return &s
 }
 
 func getRandomShape() (pos []BoardPos, pivotIndex int) {

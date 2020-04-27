@@ -1,45 +1,46 @@
 package main
 
 import (
+	"gotetris/game"
+	"log"
+	"time"
+
 	"github.com/faiface/pixel"
 	"github.com/faiface/pixel/imdraw"
 	"github.com/faiface/pixel/pixelgl"
 	"golang.org/x/image/colornames"
-	_ "image/png"
-	"time"
 )
 
-const SquareSize float64 = 30
-const BoardOffsetX float64 = 30
-const BoardOffsetY float64 = 30
-const ColCount int = 10
-const RowCount int = 24
+const (
+	slow = 0.2
+	fast = 0.05
+)
 
 const ButtonRepeatTimeDelta float64 = 0.1
 
-func mojaveWorkaround(win *pixelgl.Window) {
+func macOSFix(win *pixelgl.Window) {
 	// issue: https://github.com/faiface/pixel/issues/140
 	pos := win.GetPos()
 	win.SetPos(pixel.ZV)
 	win.SetPos(pos)
 }
 
-func createBoardBgr(boardStartPos pixel.Vec, colCount int, rowCount int) *imdraw.IMDraw {
+func makeBgr(boardStartPos pixel.Vec, colCount int, rowCount int) *imdraw.IMDraw {
 	boardGrid := imdraw.New(nil)
 	boardGrid.Color = colornames.Lightgray
 
 	for i := 0; i <= colCount; i++ {
-		lineStart := pixel.V(float64(i)*SquareSize+boardStartPos.X, boardStartPos.Y)
+		lineStart := pixel.V(float64(i)*game.SquareSize+boardStartPos.X, boardStartPos.Y)
 		lineEnd := lineStart
-		lineEnd.Y = boardStartPos.X + SquareSize*float64(rowCount)
+		lineEnd.Y = boardStartPos.X + game.SquareSize*float64(rowCount)
 		boardGrid.Push(lineStart, lineEnd)
 		boardGrid.Line(1.1)
 	}
 
 	for j := 0; j <= rowCount; j++ {
-		lineStart := pixel.V(boardStartPos.X, boardStartPos.Y+float64(j)*SquareSize)
+		lineStart := pixel.V(boardStartPos.X, boardStartPos.Y+float64(j)*game.SquareSize)
 		lineEnd := lineStart
-		lineEnd.X = boardStartPos.X + float64(colCount)*SquareSize
+		lineEnd.X = boardStartPos.X + float64(colCount)*game.SquareSize
 		boardGrid.Push(lineStart, lineEnd)
 		boardGrid.Line(1.1)
 	}
@@ -55,13 +56,13 @@ func run() {
 	}
 	window, err := pixelgl.NewWindow(cfg)
 	if err != nil {
-		panic(err)
+		log.Panicf("failed to create window: %v", err)
 	}
-	mojaveWorkaround(window)
+	macOSFix(window)
 	window.SetSmooth(false)
 
-	boardBgr := createBoardBgr(pixel.V(BoardOffsetX, BoardOffsetY), ColCount, RowCount)
-	gameBoard := NewGameBoard()
+	g := game.New()
+	boardBgr := makeBgr(pixel.V(game.BoardOffsetX, game.BoardOffsetY), game.ColCount, game.RowCount)
 
 	last := time.Now()
 	lastPressed := last
@@ -73,7 +74,7 @@ func run() {
 	fallSpeed := 0.2
 
 	for !window.Closed() {
-		if gameBoard.IsGameOver {
+		if g.IsGameOver {
 			window.SetTitle("Game Over!")
 		}
 
@@ -83,7 +84,7 @@ func run() {
 		if window.Pressed(pixelgl.KeyLeft) {
 			pressedDt = time.Since(lastPressed).Seconds()
 			if pressedDt >= ButtonRepeatTimeDelta {
-				gameBoard.MoveShapeLeft()
+				g.MoveShapeLeft()
 				lastPressed = time.Now()
 			}
 
@@ -92,33 +93,33 @@ func run() {
 		if window.Pressed(pixelgl.KeyRight) {
 			pressedDt = time.Since(lastPressed).Seconds()
 			if pressedDt >= ButtonRepeatTimeDelta {
-				gameBoard.MoveShapeRight()
+				g.MoveShapeRight()
 				lastPressed = time.Now()
 			}
 		}
 
 		if window.JustPressed(pixelgl.KeyUp) {
-			gameBoard.RotateShape()
+			g.RotateShape()
 		}
 
 		if window.Pressed(pixelgl.KeyDown) {
-			fallSpeed = 0.05
+			fallSpeed = fast
 		} else {
-			fallSpeed = 0.2
+			fallSpeed = slow
 		}
 
 		fallDt = time.Since(lastFall).Seconds()
 		if fallDt >= fallSpeed {
 			lastFall = time.Now()
-			gameBoard.fallDown()
+			g.Fall()
 		}
 
 		if dt >= 1/60 {
 			window.Clear(colornames.Black)
 			boardBgr.Draw(window)
-			gameBoard.Refresh()
-			gameBoard.ShapeImages.Draw(window)
-			gameBoard.NextShapeImages.Draw(window)
+			g.Refresh()
+			g.ShapeImgs.Draw(window)
+			g.NextShapeImgs.Draw(window)
 			window.Update()
 		}
 	}
